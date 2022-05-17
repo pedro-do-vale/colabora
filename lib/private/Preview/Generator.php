@@ -144,6 +144,7 @@ class Generator {
 			&& ($specifications[0]['width'] <= 256 || $specifications[0]['height'] <= 256)
 			&& preg_match(Imaginary::supportedMimeTypes(), $mimeType)
 			&& $this->config->getSystemValueString('preview_imaginary_url', 'invalid') !== 'invalid') {
+
 			$crop = $specifications[0]['crop'] ?? false;
 			$preview = $this->getSmallImagePreview($previewFolder, $file, $mimeType, $previewVersion, $crop);
 
@@ -263,7 +264,7 @@ class Generator {
 					continue;
 				}
 
-				$preview = $this->helper->getThumbnail($provider, $file, 256, 256, true);
+				$preview = $this->helper->getThumbnail($provider, $file, 256, 256, $crop);
 
 				if (!($preview instanceof IImage)) {
 					continue;
