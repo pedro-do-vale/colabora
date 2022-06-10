@@ -38,6 +38,8 @@ use OCP\Files\SimpleFS\ISimpleFolder;
 use OCP\IConfig;
 use OCP\Lock\LockedException;
 use OCP\PreConditionNotMetException;
+use Safe\Exceptions\FilesystemException;
+use function Safe\rewind;
 
 class BackgroundService {
 	public const THEMING_MODE_DARK = 'dark';
@@ -143,6 +145,7 @@ class BackgroundService {
 	 * @throws LockedException
 	 * @throws PreConditionNotMetException
 	 * @throws NoUserException
+	 * @throws FilesystemException
 	 */
 	public function setFileBackground($path): void {
 		$this->config->setUserValue($this->userId, 'dashboard', 'background', 'custom');
@@ -150,10 +153,12 @@ class BackgroundService {
 		/** @var File $file */
 		$file = $userFolder->get($path);
 		$image = new \OCP\Image();
-		if ($image->loadFromFileHandle($file->fopen('r')) === false) {
+		$stream = $file->fopen('r');
+		if ($image->loadFromFileHandle($stream) === false) {
 			throw new InvalidArgumentException('Invalid image file');
 		}
-		$this->getAppDataFolder()->newFile('background.jpg', $file->fopen('r'));
+		rewind($stream);
+		$this->getAppDataFolder()->newFile('background.jpg', $stream);
 	}
 
 	public function setShippedBackground($fileName): void {
