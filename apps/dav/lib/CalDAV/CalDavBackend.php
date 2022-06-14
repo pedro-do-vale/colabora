@@ -865,7 +865,7 @@ class CalDavBackend extends AbstractBackend implements SyncSupport, Subscription
 
 			$calendarData = $this->getCalendarById($calendarId);
 			$shares = $this->getShares($calendarId);
-			$this->dispatcher->dispatchTyped(new CalendarUpdatedEvent((int)$calendarId, $calendarData, $shares, $mutations));
+			$this->dispatcher->dispatchTyped(new CalendarUpdatedEvent($calendarId, $calendarData, $shares, $mutations));
 
 			return true;
 		});
@@ -915,7 +915,7 @@ class CalDavBackend extends AbstractBackend implements SyncSupport, Subscription
 
 			// Only dispatch if we actually deleted anything
 			if ($calendarData) {
-				$this->dispatcher->dispatchTyped(new CalendarDeletedEvent((int)$calendarId, $calendarData, $shares));
+				$this->dispatcher->dispatchTyped(new CalendarDeletedEvent($calendarId, $calendarData, $shares));
 			}
 		} else {
 			$qbMarkCalendarDeleted = $this->db->getQueryBuilder();
@@ -928,7 +928,7 @@ class CalDavBackend extends AbstractBackend implements SyncSupport, Subscription
 			$shares = $this->getShares($calendarId);
 			if ($calendarData) {
 				$this->dispatcher->dispatchTyped(new CalendarMovedToTrashEvent(
-					(int)$calendarId,
+					$calendarId,
 					$calendarData,
 					$shares
 				));
@@ -1268,11 +1268,11 @@ class CalDavBackend extends AbstractBackend implements SyncSupport, Subscription
 			$calendarRow = $this->getCalendarById($calendarId);
 			$shares = $this->getShares($calendarId);
 
-			$this->dispatcher->dispatchTyped(new CalendarObjectCreatedEvent((int)$calendarId, $calendarRow, $shares, $objectRow));
+			$this->dispatcher->dispatchTyped(new CalendarObjectCreatedEvent($calendarId, $calendarRow, $shares, $objectRow));
 		} else {
 			$subscriptionRow = $this->getSubscriptionById($calendarId);
 
-			$this->dispatcher->dispatchTyped(new CachedCalendarObjectCreatedEvent((int)$calendarId, $subscriptionRow, [], $objectRow));
+			$this->dispatcher->dispatchTyped(new CachedCalendarObjectCreatedEvent($calendarId, $subscriptionRow, [], $objectRow));
 		}
 
 		return '"' . $extraData['etag'] . '"';
@@ -1324,11 +1324,11 @@ class CalDavBackend extends AbstractBackend implements SyncSupport, Subscription
 				$calendarRow = $this->getCalendarById($calendarId);
 				$shares = $this->getShares($calendarId);
 
-				$this->dispatcher->dispatchTyped(new CalendarObjectUpdatedEvent((int)$calendarId, $calendarRow, $shares, $objectRow));
+				$this->dispatcher->dispatchTyped(new CalendarObjectUpdatedEvent($calendarId, $calendarRow, $shares, $objectRow));
 			} else {
 				$subscriptionRow = $this->getSubscriptionById($calendarId);
 
-				$this->dispatcher->dispatchTyped(new CachedCalendarObjectUpdatedEvent((int)$calendarId, $subscriptionRow, [], $objectRow));
+				$this->dispatcher->dispatchTyped(new CachedCalendarObjectUpdatedEvent($calendarId, $subscriptionRow, [], $objectRow));
 			}
 		}
 
@@ -1431,11 +1431,11 @@ class CalDavBackend extends AbstractBackend implements SyncSupport, Subscription
 				$calendarRow = $this->getCalendarById($calendarId);
 				$shares = $this->getShares($calendarId);
 
-				$this->dispatcher->dispatchTyped(new CalendarObjectDeletedEvent((int)$calendarId, $calendarRow, $shares, $data));
+				$this->dispatcher->dispatchTyped(new CalendarObjectDeletedEvent($calendarId, $calendarRow, $shares, $data));
 			} else {
 				$subscriptionRow = $this->getSubscriptionById($calendarId);
 
-				$this->dispatcher->dispatchTyped(new CachedCalendarObjectDeletedEvent((int)$calendarId, $subscriptionRow, [], $data));
+				$this->dispatcher->dispatchTyped(new CachedCalendarObjectDeletedEvent($calendarId, $subscriptionRow, [], $data));
 			}
 		} else {
 			$pathInfo = pathinfo($data['uri']);
@@ -2795,25 +2795,23 @@ class CalDavBackend extends AbstractBackend implements SyncSupport, Subscription
 	}
 
 	/**
-	 * @param IShareable $shareable
-	 * @param array $add
-	 * @param array $remove
+	 * @param list<array{href: string, commonName: string, readOnly: bool}> $add
+	 * @param list<string> $remove
 	 */
-	public function updateShares($shareable, $add, $remove) {
+	public function updateShares(IShareable $shareable, array $add, array $remove): void {
 		$calendarId = $shareable->getResourceId();
 		$calendarRow = $this->getCalendarById($calendarId);
 		$oldShares = $this->getShares($calendarId);
 
 		$this->calendarSharingBackend->updateShares($shareable, $add, $remove);
 
-		$this->dispatcher->dispatchTyped(new CalendarShareUpdatedEvent((int)$calendarId, $calendarRow, $oldShares, $add, $remove));
+		$this->dispatcher->dispatchTyped(new CalendarShareUpdatedEvent($calendarId, $calendarRow, $oldShares, $add, $remove));
 	}
 
 	/**
-	 * @param int $resourceId
-	 * @return array
+	 * @return list<array{href: string, commonName: string, status: int, readOnly: bool, '{http://owncloud.org/ns}principal': string, '{http://owncloud.org/ns}group-share': bool}>
 	 */
-	public function getShares($resourceId) {
+	public function getShares(int $resourceId): array {
 		return $this->calendarSharingBackend->getShares($resourceId);
 	}
 
@@ -2839,7 +2837,7 @@ class CalDavBackend extends AbstractBackend implements SyncSupport, Subscription
 				]);
 			$query->executeStatement();
 
-			$this->dispatcher->dispatchTyped(new CalendarPublishedEvent((int)$calendarId, $calendarData, $publicUri));
+			$this->dispatcher->dispatchTyped(new CalendarPublishedEvent($calendarId, $calendarData, $publicUri));
 			return $publicUri;
 		}
 		$query->delete('dav_shares')
@@ -2847,7 +2845,7 @@ class CalDavBackend extends AbstractBackend implements SyncSupport, Subscription
 			->andWhere($query->expr()->eq('access', $query->createNamedParameter(self::ACCESS_PUBLIC)));
 		$query->executeStatement();
 
-		$this->dispatcher->dispatchTyped(new CalendarUnpublishedEvent((int)$calendarId, $calendarData));
+		$this->dispatcher->dispatchTyped(new CalendarUnpublishedEvent($calendarId, $calendarData));
 		return null;
 	}
 
@@ -2876,8 +2874,6 @@ class CalDavBackend extends AbstractBackend implements SyncSupport, Subscription
 	public function applyShareAcl($resourceId, $acl) {
 		return $this->calendarSharingBackend->applyShareAcl($resourceId, $acl);
 	}
-
-
 
 	/**
 	 * update properties table

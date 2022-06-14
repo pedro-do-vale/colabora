@@ -371,12 +371,12 @@ class CardDavBackend implements BackendInterface, SyncSupport {
 				$query->set($key, $query->createNamedParameter($value));
 			}
 			$query->where($query->expr()->eq('id', $query->createNamedParameter($addressBookId)))
-				->execute();
+				->executeStatement();
 
 			$this->addChange($addressBookId, "", 2);
 
 			$addressBookRow = $this->getAddressBookById((int)$addressBookId);
-			$shares = $this->getShares($addressBookId);
+			$shares = $this->getShares((int)$addressBookId);
 			$this->dispatcher->dispatchTyped(new AddressBookUpdatedEvent((int)$addressBookId, $addressBookRow, $shares, $mutations));
 
 			return true;
@@ -446,30 +446,31 @@ class CardDavBackend implements BackendInterface, SyncSupport {
 	 * @return void
 	 */
 	public function deleteAddressBook($addressBookId) {
+		$addressBookId = (int)$addressBookId;
 		$addressBookData = $this->getAddressBookById($addressBookId);
 		$shares = $this->getShares($addressBookId);
 
 		$query = $this->db->getQueryBuilder();
 		$query->delete($this->dbCardsTable)
 			->where($query->expr()->eq('addressbookid', $query->createParameter('addressbookid')))
-			->setParameter('addressbookid', $addressBookId)
-			->execute();
+			->setParameter('addressbookid', $addressBookId, IQueryBuilder::PARAM_INT)
+			->executeStatement();
 
 		$query->delete('addressbookchanges')
 			->where($query->expr()->eq('addressbookid', $query->createParameter('addressbookid')))
-			->setParameter('addressbookid', $addressBookId)
-			->execute();
+			->setParameter('addressbookid', $addressBookId, IQueryBuilder::PARAM_INT)
+			->executeStatement();
 
 		$query->delete('addressbooks')
 			->where($query->expr()->eq('id', $query->createParameter('id')))
-			->setParameter('id', $addressBookId)
-			->execute();
+			->setParameter('id', $addressBookId, IQueryBuilder::PARAM_INT)
+			->executeStatement();
 
 		$this->sharingBackend->deleteAllShares($addressBookId);
 
 		$query->delete($this->dbCardsPropertiesTable)
-			->where($query->expr()->eq('addressbookid', $query->createNamedParameter($addressBookId)))
-			->execute();
+			->where($query->expr()->eq('addressbookid', $query->createNamedParameter($addressBookId, IQueryBuilder::PARAM_INT)))
+			->executeStatement();
 
 		if ($addressBookData) {
 			$this->dispatcher->dispatchTyped(new AddressBookDeletedEvent($addressBookId, $addressBookData, $shares));
@@ -964,11 +965,10 @@ class CardDavBackend implements BackendInterface, SyncSupport {
 	}
 
 	/**
-	 * @param IShareable $shareable
-	 * @param string[] $add
-	 * @param string[] $remove
+	 * @param list<array{href: string, commonName: string, readOnly: bool}> $add
+	 * @param list<string> $remove
 	 */
-	public function updateShares(IShareable $shareable, $add, $remove) {
+	public function updateShares(IShareable $shareable, array $add, array $remove): void {
 		$addressBookId = $shareable->getResourceId();
 		$addressBookData = $this->getAddressBookById($addressBookId);
 		$oldShares = $this->getShares($addressBookId);
@@ -1199,11 +1199,10 @@ class CardDavBackend implements BackendInterface, SyncSupport {
 	 *   * commonName - Optional, for example a first + last name
 	 *   * status - See the Sabre\CalDAV\SharingPlugin::STATUS_ constants.
 	 *   * readOnly - boolean
-	 *   * summary - Optional, a description for the share
 	 *
-	 * @return array
+	 * @return list<array{href: string, commonName: string, status: int, readOnly: bool, '{http://owncloud.org/ns}principal': string, '{http://owncloud.org/ns}group-share': bool}>
 	 */
-	public function getShares($addressBookId) {
+	public function getShares(int $addressBookId): array {
 		return $this->sharingBackend->getShares($addressBookId);
 	}
 

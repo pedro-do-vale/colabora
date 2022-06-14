@@ -109,12 +109,11 @@ class Calendar extends \Sabre\CalDAV\Calendar implements IRestorable, IShareable
 	 *
 	 * Every element in the remove array is just the address string.
 	 *
-	 * @param array $add
-	 * @param array $remove
-	 * @return void
+	 * @param list<array{href: string, commonName: string, readOnly: bool}> $add
+	 * @param list<string> $remove
 	 * @throws Forbidden
 	 */
-	public function updateShares(array $add, array $remove) {
+	public function updateShares(array $add, array $remove): void {
 		if ($this->isShared()) {
 			throw new Forbidden();
 		}
@@ -131,19 +130,16 @@ class Calendar extends \Sabre\CalDAV\Calendar implements IRestorable, IShareable
 	 *   * readOnly - boolean
 	 *   * summary - Optional, a description for the share
 	 *
-	 * @return array
+	 * @return list<array{href: string, commonName: string, status: int, readOnly: bool, '{http://owncloud.org/ns}principal': string, '{http://owncloud.org/ns}group-share': bool}>
 	 */
-	public function getShares() {
+	public function getShares(): array {
 		if ($this->isShared()) {
 			return [];
 		}
 		return $this->caldavBackend->getShares($this->getResourceId());
 	}
 
-	/**
-	 * @return int
-	 */
-	public function getResourceId() {
+	public function getResourceId(): int {
 		return $this->calendarInfo['id'];
 	}
 
@@ -255,7 +251,7 @@ class Calendar extends \Sabre\CalDAV\Calendar implements IRestorable, IShareable
 		return $this->getACL();
 	}
 
-	public function getOwner() {
+	public function getOwner(): ?string {
 		if (isset($this->calendarInfo['{http://owncloud.org/ns}owner-principal'])) {
 			return $this->calendarInfo['{http://owncloud.org/ns}owner-principal'];
 		}
